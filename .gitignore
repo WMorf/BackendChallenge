@@ -1,0 +1,5 @@
+.gitattributes
+.pyc
+.db
+*.db
+*.pyc
