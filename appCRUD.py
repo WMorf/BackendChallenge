@@ -1,9 +1,14 @@
 import sqlite3
+import logging
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 
 db = 'challenge.db'
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 #DATABASE
 def dbConnect():
@@ -181,46 +186,75 @@ def getMostRecentBook():
 #API
 app = FastAPI()
 
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.error(f"HTTPException: {exc.status_code} - {exc.detail} - Path: {request.url.path}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"ValidationError: {exc.errors()} - Path: {request.url.path}")
+    return JSONResponse(
+        status_code=422,
+        content={"error": "Validation error", "details": exc.errors()},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled exception on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "An unexpected error occurred. Please try again later."},
+    )
+
+
 def getData(title:str):
 
     try:
         response = requests.get(
-            "https://www.googleapis.com/books/v1/volumes",
-            params={"q": title},
-            timeout=5
+            "https://openlibrary.org/search.json",
+            params={"title": title, "limit": 1},
+            timeout=10
         )
         response.raise_for_status()
     except requests.RequestException:
-        raise HTTPException(status_code=500, detail="Failed to fetch data from Google Books API")
+        raise HTTPException(status_code=500, detail="Failed to fetch data from Open Library API")
 
     data = response.json()
 
-    if "items" not in data or not data["items"]:
+    if "docs" not in data or not data["docs"]:
         return {
-            "local_book": dict(title),
-            "external_data": "No matching book data found in Google Books API"
+            "local_book": dict(title=title),
+            "external_data": "No matching book data found in Open Library API"
         }
 
-    bookInfo = data["items"][0]["volumeInfo"]
+    bookInfo = data["docs"][0]
 
     return {
         "local_book": dict(title=title),
         "external_data": {
             "title": bookInfo.get("title"),
-            "authors": bookInfo.get("authors", []),
-            "publishedDate": bookInfo.get("publishedDate"),
-            "description": bookInfo.get("description", "No description available"),
-            "pageCount": bookInfo.get("pageCount", "Unknown"),
-            "categories": bookInfo.get("categories", []),
-            "averageRating": bookInfo.get("averageRating", "No rating")
+            "authors": bookInfo.get("author_name", []),
+            "publishedDate": str(bookInfo.get("first_publish_year", "Unknown")),
+            "description": "No description available",
+            "pageCount": bookInfo.get("number_of_pages_median", "Unknown"),
+            "categories": bookInfo.get("subject", [])[:5],
+            "averageRating": bookInfo.get("ratings_average", "No rating")
         }
     }
 
 def saveAPIData(apiData):
-    localBook = apiData["local_book"]
-    title = localBook["title"]
-    authorName = localBook["authors", [0]]
-    publishedDate = localBook["published_date"]
+    externalData = apiData["external_data"]
+    title = externalData["title"]
+    authors = externalData.get("authors", [])
+    authorName = authors[0] if authors else "Unknown"
+    publishedDate = externalData.get("publishedDate", "Unknown")
 
     conn = dbConnect()
     cursor = conn.execute("SELECT id FROM Authors WHERE author_name = ?", (authorName,))

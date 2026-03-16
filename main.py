@@ -1,33 +1,36 @@
 from appCRUD import *
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+try:
+
+    while True:
+        choice = input("Build database? (y/n): ").strip().lower()
+
+        if choice == "y":
+            buildDB()
+            break
+        elif choice == "n":
+            break
+        else:
+            print("Invalid choice. Try again.")
+
+    while True:
+
+        choice = input("Seed database? (y/n): ").strip().lower()
+
+        if choice == "y":
+            seedDB()
+            break
+        elif choice == "n":
+            break
+        else:
+            print("Invalid choice. Try again.")
 
 
-while True:
-    choice = input("Build database? (y/n): ").strip().lower()
-
-    if choice == "y":
-        buildDB()
-        break
-    elif choice == "n":
-        break
-    else:
-        print("Invalid choice. Try again.")
-
-
-
-while True:
-
-    choice = input("Seed database? (y/n): ").strip().lower()
-
-    if choice == "y":
-        seedDB()
-        break
-    elif choice == "n":
-        break
-    else:
-        print("Invalid choice. Try again.")
-
-
-while True:
+    while True:
         print("\nDatabase Menu")
         print("1. Manage Books")
         print("2. Manage Authors")
@@ -149,3 +152,10 @@ while True:
 
         else:
              print("Invalid choice. Try again.")
+
+except KeyboardInterrupt:
+    print("\nProgram interrupted. Goodbye.")
+except Exception as e:
+    logger.exception(f"An unexpected error occurred: {e}")
+    print(f"\nA fatal error occurred: {e}")
+    print("The program will now exit.")
