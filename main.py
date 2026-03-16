@@ -1,8 +1,9 @@
 from appCRUD import *
 
-choice = input("Build database? (y/n): ").strip().lower()
 
 while True:
+    choice = input("Build database? (y/n): ").strip().lower()
+
     if choice == "y":
         buildDB()
         break
@@ -11,9 +12,12 @@ while True:
     else:
         print("Invalid choice. Try again.")
 
-choice = input("Seed database? (y/n): ").strip().lower()
+
 
 while True:
+
+    choice = input("Seed database? (y/n): ").strip().lower()
+
     if choice == "y":
         seedDB()
         break
@@ -40,8 +44,8 @@ while True:
                 print("\nBooks Menu")
                 print("1. Add Book")
                 print("2. Show Books")
-                print("3. Edit/Delete Book")
-                print("3. Back to Main Menu")
+                print("3. Find/Edit/Delete Book")
+                print("4. Back to Main Menu")
 
                 book_choice = input("Choose an option: ").strip()
 
@@ -50,14 +54,18 @@ while True:
                 elif book_choice == "2":
                     showBooks()
                 elif book_choice == "3":
+                    findBook()
+                elif book_choice == "4":
                     break
+                else:
+                    print("Invalid choice. Try again.")
 
         elif choice == "2":
             while True:
                 print("\nAuthors Menu")
                 print("1. Add Author")
                 print("2. Show Authors")
-                print("3. Edit/Delete Author")
+                print("3. Find/Edit/Delete Author")
                 print("4. Show Author's Books")
                 print("5. Back to Main Menu")
 
@@ -78,9 +86,37 @@ while True:
                         print("Invalid author ID.")
                 elif author_choice == "5":
                     break
+                else:
+                    print("Invalid choice. Try again.")
 
         elif choice == "3":
-            print("\nAPI functionality not implemented yet.")
+            bookTitle = input("Enter book title for API data: ").strip()
+            try:
+                apiData = getData(bookTitle)
+                print("\nAPI Data:")
+                if isinstance(apiData["external_data"], dict):
+                    print(f"Title: {apiData['external_data']['title']}")
+                    print(f"Authors: {', '.join(apiData['external_data']['authors'])}")
+                else:
+                    print(apiData["external_data"])
+            except ValueError:
+                print("Invalid book title.")
+                pass
+            try:
+                print("\nSave results to database? (y/n): ")
+                saveChoice = input().strip().lower()
+                if saveChoice == "y":
+                    saveAPIData(apiData)
+                    print("Data saved to database.")
+                elif saveChoice == "n":
+                    print("Data not saved.")
+                    pass
+                else:
+                    print("Invalid choice. Data not saved.")
+                    pass
+            except Exception as e:
+                print(f"Error saving data: {e}")
+            
 
         elif choice == "4":
             print("\nTotal Records:")

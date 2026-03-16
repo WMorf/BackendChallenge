@@ -1,4 +1,7 @@
 import sqlite3
+import requests
+from fastapi import FastAPI, HTTPException
+
 
 db = 'challenge.db'
 
@@ -175,6 +178,64 @@ def getMostRecentBook():
     conn.close()
     return row
 
+#API
+app = FastAPI()
+
+def getData(title:str):
+
+    try:
+        response = requests.get(
+            "https://www.googleapis.com/books/v1/volumes",
+            params={"q": title},
+            timeout=5
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        raise HTTPException(status_code=500, detail="Failed to fetch data from Google Books API")
+
+    data = response.json()
+
+    if "items" not in data or not data["items"]:
+        return {
+            "local_book": dict(title),
+            "external_data": "No matching book data found in Google Books API"
+        }
+
+    bookInfo = data["items"][0]["volumeInfo"]
+
+    return {
+        "local_book": dict(title=title),
+        "external_data": {
+            "title": bookInfo.get("title"),
+            "authors": bookInfo.get("authors", []),
+            "publishedDate": bookInfo.get("publishedDate"),
+            "description": bookInfo.get("description", "No description available"),
+            "pageCount": bookInfo.get("pageCount", "Unknown"),
+            "categories": bookInfo.get("categories", []),
+            "averageRating": bookInfo.get("averageRating", "No rating")
+        }
+    }
+
+def saveAPIData(apiData):
+    localBook = apiData["local_book"]
+    title = localBook["title"]
+    authorName = localBook["authors", [0]]
+    publishedDate = localBook["published_date"]
+
+    conn = dbConnect()
+    cursor = conn.execute("SELECT id FROM Authors WHERE author_name = ?", (authorName,))
+    authorRow = cursor.fetchone()
+
+    if authorRow:
+        authorID = authorRow["id"]
+    else:
+        cursor = conn.execute("INSERT INTO Authors (author_name, birth_date) VALUES (?, ?)", (authorName, "Unknown"))
+        authorID = cursor.lastrowid
+
+    conn.execute("INSERT INTO Books (title, author_id, published_date) VALUES (?, ?, ?)", (title, authorID, publishedDate))
+    conn.commit()
+    conn.close()
+
 #Authors
 def addAuthor(author_name, birth_date):
     conn = dbConnect()
@@ -303,3 +364,23 @@ def getMostRecentAuthor():
 
     conn.close()
     return row
+
+def showAuthorBooks(author_id):
+    conn = dbConnect()
+    rows = conn.execute("""
+        SELECT Books.id, Books.title, Books.published_date
+        FROM Books
+        WHERE Books.author_id = ?
+        ORDER BY Books.id
+    """, (author_id,)).fetchall()
+    conn.close()
+
+    if not rows:
+        print("\nNo books found for this author.")
+        return
+
+    print(f"\nBooks by Author ID {author_id}:")
+    print(f"\nAuthor Name: {rows[0]['author_name'] if 'author_name' in rows[0].keys() else 'Unknown Author'}")
+    for book in rows:
+        print(f"{book['id']}. {book['title']} (Published: {book['published_date']})")
+
